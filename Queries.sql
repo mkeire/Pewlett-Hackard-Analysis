@@ -152,6 +152,85 @@ CREATE TABLE ret_sales_team as
 WHERE dept_name IN ('Sales'));
 
 SELECT * FROM ret_sales_team;
+
+-- Determine duplicates
+SELECT
+ first_name,
+ last_name,
+ count(*)
+FROM retirement_info
+GROUP BY
+ first_name,
+ last_name
+HAVING count(*) > 1;
+
+-- Display duplicates with all information
+SELECT * FROM
+	(SELECT *, count(*)
+	OVER
+		(PARTITION BY
+			first_name,
+			last_name
+		) AS count
+	FROM retirement_info) retirement_info_with_count
+	WHERE retirement_info_with_count.count > 1;
+
+-- Remove deuplicates
+SELECT DISTINCT * FROM retirement_info;
+
+SELECT * FROM retirement_info;
+
+-- Create table for retiring employees by title, salary, and date
+CREATE TABLE ret_emp_title as (
+	SELECT
+		ri.emp_no,
+		ri.first_name,
+		ri.last_name,
+		ti.title,
+		ti.from_date
+	FROM retirement_info as ri
+	INNER JOIN Titles as ti
+	ON (ri.emp_no = ti.emp_no))
+
+SELECT * FROM ret_emp_title;
+
+CREATE TABLE ret_emp_title_salary as (
+	SELECT
+		ret.emp_no,
+		ret.first_name,
+		ret.last_name,
+		ret.title,
+		ret.from_date,
+		s.salary
+	FROM ret_emp_title as ret
+	INNER JOIN Salaries as s
+	ON (ret.emp_no = s.emp_no))
+	
+SELECT * FROM ret_emp_title_salary;
+
+-- Partition the data to show only most recent title per employee
+SELECT
+emp_no,
+first_name,
+last_name,
+title,
+from_date,
+salary
+INTO deduplicared_rets
+FROM (
+	SELECT
+	emp_no,
+	first_name,
+	last_name,
+	title,
+	from_date,
+	salary,
+	ROW_NUMBER() OVER
+	(PARTITION BY (emp_no)
+	ORDER BY from_date DESC) rn
+	FROM ret_emp_title_salary
+	) tmp WHERE rn = 1
+	ORDER BY emp_no
 					
 CREATE TABLE ret_sales_dev_team as
 (SELECT * FROM ret_emp_by_dept
